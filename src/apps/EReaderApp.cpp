@@ -16,6 +16,8 @@ namespace {
     constexpr uint16_t CHAR_H = 27;              // FreeSans12pt7b yAdvance (line height)
     constexpr uint16_t MARGIN_X = 20;
     constexpr uint16_t MARGIN_Y = 80;
+    constexpr uint16_t EPUB_LEFT_MARGIN  = 40;
+    constexpr uint16_t EPUB_RIGHT_MARGIN = 2 * MARGIN_X - EPUB_LEFT_MARGIN;
 
     constexpr int16_t LIST_X = 40;
     constexpr int16_t LIST_Y = 100;
@@ -194,7 +196,7 @@ void EReaderApp::paginate(Inkplate& display, const std::string& text) {
     TextLayout layout(text);
     int16_t w = display.width();
     int16_t h = display.height();
-    uint16_t areaW = (w > 2 * MARGIN_X) ? (w - 2 * MARGIN_X) : 0;
+    uint16_t areaW = (w > EPUB_LEFT_MARGIN + EPUB_RIGHT_MARGIN) ? (w - EPUB_LEFT_MARGIN - EPUB_RIGHT_MARGIN) : 0;
     uint16_t areaH = (h > MARGIN_Y + 30) ? (h - MARGIN_Y - 30) : 0;
     layout.setMetrics(CHAR_W, CHAR_H, areaW, areaH);
     pages_ = layout.pages();
@@ -484,13 +486,14 @@ void EReaderApp::drawReader(Inkplate& display) {
 
     display.setFont(BodyFont);
     display.setTextSize(TEXT_SIZE);
-    display.setCursor(MARGIN_X, MARGIN_Y);
+    display.setCursor(EPUB_LEFT_MARGIN, MARGIN_Y);
 
     const std::string& page = pages_[currentPage_];
     size_t i = 0;
     while (i < page.size()) {
         size_t end = page.find('\n', i);
         if (end == std::string::npos) end = page.size();
+        display.setCursor(EPUB_LEFT_MARGIN, display.getCursorY());
         display.println(page.substr(i, end - i).c_str());
         i = end + 1;
         if (display.getCursorY() > display.height() - 30) break;
