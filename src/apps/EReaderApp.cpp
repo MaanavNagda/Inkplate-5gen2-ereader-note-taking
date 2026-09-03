@@ -12,8 +12,8 @@
 namespace {
     constexpr uint8_t FULL_REFRESH_EVERY = 50;
     constexpr uint8_t TEXT_SIZE = 1;           // native font scaling
-    constexpr uint16_t CHAR_W = 10;              // FreeSans9pt7b average xAdvance
-    constexpr uint16_t CHAR_H = 22;              // FreeSans9pt7b yAdvance (line height)
+    constexpr uint16_t CHAR_W = 13;              // FreeSans12pt7b average xAdvance
+    constexpr uint16_t CHAR_H = 27;              // FreeSans12pt7b yAdvance (line height)
     constexpr uint16_t MARGIN_X = 20;
     constexpr uint16_t MARGIN_Y = 80;
 
@@ -26,7 +26,7 @@ namespace {
     constexpr uint16_t FG_DARK = 7;
     constexpr uint16_t BG_DARK = 0;
 
-    const GFXfont* const BodyFont    = &FreeSans9pt7b;   // smooth book text
+    const GFXfont* const BodyFont    = &FreeSans12pt7b;  // smooth book text
     const GFXfont* const UIFont      = &FreeSans12pt7b;  // smooth UI labels
     const GFXfont* const TitleFont   = &FreeSans12pt7b;  // smooth titles
     const GFXfont* const PageNumFont = &FreeSans12pt7b;  // smooth page counter
