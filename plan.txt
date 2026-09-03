@@ -1,0 +1,170 @@
+Inkplate 5V2 E-reader / Notes Maker — Implementation Plan
+=========================================================
+
+Hardware target
+---------------
+- Board: Soldered Inkplate 5 Gen2 (Inkplate 5V2)
+- MCU: ESP32-WROVER-E (classic ESP32, 240 MHz, 520 KB SRAM, 8 MB PSRAM)
+- Display: 5.17" E Ink, 720 × 1280, 1-bit black/white default, partial/full refresh support
+- Buttons: WAKE on GPIO 36, IO/FLASH on GPIO 0. Both active-low (LOW when pressed).
+- Storage: 64 GB microSD card (books, notes, screensavers, config).
+- Keyboard: BLE HID host for an Aolso folding keyboard. Default layout is UK; additional language packs are profile-dependent.
+- Power:
+  - 2 minutes of inactivity  -> light sleep (wake on any button)
+  - 15 minutes of inactivity -> deep sleep, show a screensaver image
+  - WAKE button wakes from deep sleep; device resumes the last content after a full refresh
+  - Every 50 partial refreshes triggers an automatic full refresh; a manual full refresh resets the counter
+
+Architecture
+------------
+- lib/ButtonHandler   : pure-logic state machine for short press, long press and both-press.
+                        Unit-testable on the host (no Arduino dependency).
+- src/ButtonInput     : GPIO wrapper with debounce for WAKE and IO.
+- src/App.h           : abstract base class for the four applications.
+- src/AppManager      : top-level state machine, dispatches button events, manages app switching.
+- src/SleepManager    : inactivity tracking and light/deep sleep orchestration.
+- src/apps/*          : concrete applications (Selector, EReader, Textbook, Notes, Notes+Textbook).
+- lib/Profile         : settings profiles (font, size, light/dark, key layout) and language packs.
+- lib/BleKeyboard     : BLE HID host, scancode -> UTF-8 keymap, F-key handling.
+- lib/BookFormats     : on-device EPUB text reader, no-image placeholder, SD index loader.
+- lib/PdfView         : page-image loader for pre-converted textbooks and TOC.
+- lib/MarkdownNotes   : markdown buffer, cursor, sentence-based partial refresh, save/load.
+- lib/SplitView       : 80/20 top/bottom layout for Notes + Textbook.
+
+SD layout
+---------
+/books/                       EPUB files and/or .book text files for novels
+/textbooks/<book>/
+    index.json                 metadata, page count, chapter/subchapter TOC
+    page_000.bmp .. page_NNN.bmp   pre-converted 720×1018 (or 720×1280) 1-bit images
+/notes/                       .md notes with auto-save
+/screensaver.bmp              deep sleep image (provided later)
+/config.json                  profiles, last app, last book/page, bookmarks
+
+Common e-reader/textbook features (what mature readers usually provide)
+-----------------------------------
+- Library grid, cover thumbnails, pagination
+- Page forward/back, full/partial refresh control
+- Bookmarks (create/delete/cycle)
+- Font size switching (12, 18, 24)
+- Light mode / dark mode
+- Last-read resume
+- Exit to library / app selector
+- TOC/chapter navigation (textbook)
+- (Future) search, dictionary, progress bar, annotations
+
+Common notes features (what typical note apps provide)
+------------------------------------------------------
+- Live markdown editing with cursor
+- Bold / italic / underline / headings / lists
+- Profiles for fonts, sizes, dark mode, key layouts
+- Multiple language packs
+- Save/load file browser
+- Partial refresh per sentence
+- (Future) tags, search, templates, sync
+
+Application 1: App Selector (home screen)
+-----------------------------------------
+- Four large labels in a 2×2 grid
+- Mappings:
+  * WAKE short press  -> E-reader
+  * WAKE long press   -> Textbook
+  * IO   short press  -> Notes
+  * IO   long press   -> Notes + Textbook
+- Render once with full refresh; no partial updates here
+
+Application 2: E-reader
+-----------------------
+Library mode:
+- Shows up to 6 book covers per page
+- IO short press cycles the selection (6 covers, wrap around)
+- IO long press opens the selected book
+- WAKE short press goes to next library page
+- WAKE long press goes to previous library page
+- Both buttons -> App Selector
+
+Book mode:
+- WAKE short press -> previous page
+- IO   short press -> next page
+- WAKE long press  -> force full refresh (resets the 50-partial counter)
+- IO   long press  -> open sub-menu
+
+Sub-menu:
+- IO short press  -> exit sub-menu
+- IO long press   -> enter bookmark sub-sub-menu
+- WAKE short press-> toggle font size (12 -> 18 -> 24)
+- WAKE long press -> toggle light/dark mode
+
+Bookmark sub-sub-menu:
+- WAKE short press -> create bookmark at current page
+- WAKE long press  -> delete bookmark (cycle if multiple)
+- IO   short press -> create bookmark at current page and then cycle to the next bookmark (wraps back to the original page)
+- IO   long press  -> exit sub-sub-menu directly to the book page
+
+EPUB handling:
+- EPUB is parsed on the device for novels, images are ignored
+- When an <img> is encountered, a "no image" placeholder glyph is drawn
+- (Future: when networked, image regions can be sent to the PC server for rendering and returned)
+
+Application 3: Textbook
+-----------------------
+- Identical to E-reader, except:
+  * Pages come from pre-converted SD images (720×1018 or 720×1280 BMP/PNG)
+  * In the second sub-menu, IO short press opens a chapter/subchapter list
+    (a sub-sub-sub-menu) instead of cycling bookmarks
+  * That list is navigated like the e-reader library: WAKE short/long for pages,
+    IO short to cycle, IO long to select
+
+Application 4: Notes
+--------------------
+- Requires a paired BLE keyboard; shows "keyboard required" if none is connected
+- Full-screen markdown editor
+- Partial refresh after every sentence (sentence ends on '.', '?' or Enter on blank line)
+- Standard shortcuts: Ctrl+B bold, Ctrl+I italic, Ctrl+U underline, Ctrl+S save
+- Function-key layer (all require Fn):
+  * Fn+F1..F4  -> switch profile
+  * Fn+Esc     -> exit to App Selector
+  * Esc alone  -> exit to notes database/file list
+  * Fn+F11/F12 -> cycle language pack
+- Profiles carry font, font size, light/dark, keymap
+
+Application 5: Notes + Textbook
+--------------------------------
+- Top 80% shows the current textbook page image
+- Bottom 20% is a notes sliver using Notes app rules
+- Fn+F5..F8 map to the textbook button actions:
+  * Fn+F5 = WAKE short  -> previous page
+  * Fn+F6 = WAKE long   -> force full refresh
+  * Fn+F7 = IO short    -> next page
+  * Fn+F8 = IO long     -> sub-menu
+- Fn+Esc exits to App Selector
+- Profiles and language packs are still changed with Fn+F1..F4 / Fn+F11/F12
+
+Button timing
+-------------
+- Button sample period: ~10 ms in main loop
+- Debounce: 20 ms stable time
+- Long press threshold: 600 ms (tunable)
+- Both-press threshold: 150 ms (both buttons held together for this long)
+
+UI / styling
+------------
+- 1-bit palette: black on white (light), white on black (dark)
+- Menu background fills the whole screen; selected item is drawn with a filled box
+- Menus use a medium built-in font (size 18) for readability
+- Body text in the reader uses the selected profile font/size
+- App selector: 2×2 grid, large text, underline on the active/last choice
+- Dialogs/menus are centered, 20 px padding, rounded-ish boxes via rectangles
+- Page progress shown in the top-right of the reader
+- No images in menus unless they are book covers
+
+Implementation milestones
+-------------------------
+1. PlatformIO skeleton, plan, button handler + unit tests
+2. App selector and low-power shell (light/deep sleep + screensaver)
+3. E-reader library and book viewer + EPUB text parsing
+4. Textbook page-image viewer + chapter TOC
+5. BLE HID keyboard host + profiles/keymaps
+6. Markdown notes editor + sentence partial refresh
+7. Split-screen notes + textbook
+8. Integration testing, bug fixes, polish

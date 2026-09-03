@@ -1,0 +1,31 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang_complete
+.gcc-flags.json
+
+# Python venv
+.venv/
+venv/
+__pycache__/
+
+# Build / test artifacts
+*.bin
+*.elf
+*.hex
+*.map
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Test books / large binaries
+*.epub
+*.pdf
+*.mobi
