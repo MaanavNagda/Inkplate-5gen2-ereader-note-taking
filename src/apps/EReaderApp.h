@@ -18,7 +18,7 @@ public:
     void render(Inkplate& display) override;
     void onButton(ButtonAction action) override;
 private:
-    enum class State { LIBRARY, READER, MENU, BOOKMARKS, EXITING };
+    enum class State { LIBRARY, READER, MENU, EXITING };
 
     bool needsRender_ = true;
     bool sdOk_ = false;

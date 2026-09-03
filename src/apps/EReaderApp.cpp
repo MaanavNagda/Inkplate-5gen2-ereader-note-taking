@@ -466,7 +466,6 @@ void EReaderApp::render(Inkplate& display) {
         case State::LIBRARY:   drawLibrary(display); break;
         case State::READER:    drawReader(display); break;
         case State::MENU:      drawMenu(display); break;
-        case State::BOOKMARKS: drawBookmarks(display); break;
         case State::EXITING:   drawExiting(display); break;
     }
 
@@ -604,7 +603,7 @@ void EReaderApp::drawMenu(Inkplate& display) {
     display.print("tap:  Light / Dark");
     y += 60;
     display.setCursor(MARGIN_X, y);
-    display.print("dbl:  Bookmarks");
+    display.print("dbl:  Exit");
     y += 60;
     display.setCursor(MARGIN_X, y);
     display.print("hold: Full refresh");
@@ -653,7 +652,7 @@ void EReaderApp::drawExiting(Inkplate& display) {
     display.setTextSize(1);
     int16_t y = 120;
     display.setCursor(MARGIN_X, y);
-    display.print("tap:  Bookmarks");
+    display.print("tap:  none");
     y += 60;
     display.setCursor(MARGIN_X, y);
     display.print("dbl:  Back to page");
@@ -743,45 +742,23 @@ void EReaderApp::onButton(ButtonAction action) {
                     needsRender_ = true;
                     break;
                 case ButtonAction::IO_DOUBLE:
-                    state_ = State::BOOKMARKS;
-                    forceFullRefresh();
-                    needsRender_ = true;
-                    break;
-                case ButtonAction::IO_LONG:
-                    state_ = State::READER;
-                    forceFullRefresh();
-                    needsRender_ = true;
-                    break;
-                default: break;
-            }
-            break;
-
-        case State::BOOKMARKS:
-            switch (action) {
-                case ButtonAction::IO_SHORT:
-                    toggleBookmark();
-                    needsRender_ = true;
-                    break;
-                case ButtonAction::IO_DOUBLE:
-                    jumpToNextBookmark();
-                    state_ = State::READER;
-                    needsRender_ = true;
-                    break;
-                case ButtonAction::IO_LONG:
                     state_ = State::EXITING;
                     forceFullRefresh();
                     needsRender_ = true;
                     break;
+                case ButtonAction::IO_LONG:
+                    state_ = State::READER;
+                    forceFullRefresh();
+                    needsRender_ = true;
+                    break;
                 default: break;
             }
             break;
 
+
         case State::EXITING:
             switch (action) {
                 case ButtonAction::IO_SHORT:
-                    state_ = State::BOOKMARKS;
-                    forceFullRefresh();
-                    needsRender_ = true;
                     break;
                 case ButtonAction::IO_DOUBLE:
                     state_ = State::READER;
