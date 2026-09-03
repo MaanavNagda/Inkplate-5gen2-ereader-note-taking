@@ -238,7 +238,7 @@ void TextbookApp::render(Inkplate& display) {
         default: break;
     }
 
-    bool full = (state_ != State::LIBRARY);
+    bool full = (state_ != State::LIBRARY && state_ != State::PAGE_SELECTOR);
     if (full) {
         display.display();
     } else {
@@ -463,7 +463,6 @@ void TextbookApp::onButton(ButtonAction action) {
                         pageSelectorDigits_[0] = static_cast<uint8_t>((page1 / 100) % 10);
                         selectedDigit_ = 0;
                         state_ = State::PAGE_SELECTOR;
-                        forceFullRefresh();
                         needsRender_ = true;
                     }
                     break;
@@ -511,7 +510,6 @@ void TextbookApp::onButton(ButtonAction action) {
                             updateBookmarkIndex();
                         }
                         state_ = State::READER;
-                        forceFullRefresh();
                     } else {
                         ++selectedDigit_;
                     }
