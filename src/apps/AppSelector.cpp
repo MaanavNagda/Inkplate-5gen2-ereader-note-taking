@@ -11,8 +11,8 @@ namespace {
     constexpr int16_t GRID_X = (1280 - (4 * BOX_SIZE + 3 * GAP)) / 2;
     constexpr int16_t GRID_Y = (720 - BOX_SIZE) / 2;
     constexpr int16_t TITLE_Y = 80;
-    constexpr uint16_t APP_BLACK = 0;
-    constexpr uint16_t APP_WHITE = 7;
+    constexpr uint16_t APP_BLACK = 7;
+    constexpr uint16_t APP_WHITE = 0;
 
     const GFXfont* const UIFont = &FreeSans12pt7b;
 

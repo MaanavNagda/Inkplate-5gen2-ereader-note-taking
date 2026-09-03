@@ -23,10 +23,10 @@ namespace {
     constexpr int16_t LIST_Y = 100;
     constexpr int16_t LIST_ITEM_H = 50;
 
-    constexpr uint16_t FG_LIGHT = 0;
-    constexpr uint16_t BG_LIGHT = 7;
-    constexpr uint16_t FG_DARK = 7;
-    constexpr uint16_t BG_DARK = 0;
+    constexpr uint16_t FG_LIGHT = 7;
+    constexpr uint16_t BG_LIGHT = 0;
+    constexpr uint16_t FG_DARK = 0;
+    constexpr uint16_t BG_DARK = 7;
 
     const GFXfont* const BodyFont    = &FreeSans12pt7b;  // smooth book text
     const GFXfont* const UIFont      = &FreeSans12pt7b;  // smooth UI labels
