@@ -5,7 +5,7 @@
 #include "Inkplate.h"
 
 namespace {
-    constexpr size_t CHUNK_SIZE = 128;
+    constexpr size_t CHUNK_SIZE = 2048;
     uint8_t chunkBuf[CHUNK_SIZE];
 }
 
@@ -116,7 +116,16 @@ bool SerialFileReceiver::processCommand(Inkplate& display) {
     }
 
     SdFat& sd = display.getSdFat();
-    sd.mkdir("/books", true);
+
+    // Create any missing parent directories for the target path.
+    std::string dir = path;
+    size_t slash = dir.find_last_of('/');
+    if (slash != std::string::npos) {
+        dir = dir.substr(0, slash);
+        if (!dir.empty()) {
+            sd.mkdir(dir.c_str(), true);
+        }
+    }
 
     if (file_.isOpen()) {
         file_.close();

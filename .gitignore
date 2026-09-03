@@ -29,3 +29,10 @@ Thumbs.db
 *.epub
 *.pdf
 *.mobi
+
+# Generated textbook page data (created by scripts/build_textbooks.py)
+src/apps/TextbookData.cpp
+
+# Rendered page images and sample files for the image-based textbook pipeline
+textbooks_out/
+textbooks/.sample_*.jpg

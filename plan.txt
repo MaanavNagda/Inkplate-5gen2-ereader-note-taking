@@ -168,3 +168,66 @@ Implementation milestones
 6. Markdown notes editor + sentence partial refresh
 7. Split-screen notes + textbook
 8. Integration testing, bug fixes, polish
+
+PDF Textbook App — Addendum (current task)
+=========================================================
+
+Goal
+----
+Create a `TextbookApp` that behaves like the `EReaderApp` but uses
+pre-processed, host-side-parsed PDF textbooks embedded in the firmware.
+No on-device PDF parsing should happen.
+
+Frontend (Phase 1 — do now)
+---------------------------
+- Reuse the exact UI/controls/flow of `EReaderApp`:
+  * `State::LIBRARY` list of textbook titles
+  * `State::READER` paginated text view with page counter
+  * `State::MENU` (tap = light/dark, dbl = exit, hold = full refresh)
+  * `State::EXITING` (tap = back to menu, dbl = back to reader, hold = home)
+  * Partial updates in the library and reader, full refresh every N updates
+- Replace `EpubReader` with a generated `TextbookData` source.
+- Add `TextbookData.h` describing a compile-time array of textbooks and pages.
+- `TextbookApp.cpp` mirrors `EReaderApp.cpp` but loads pages from
+  `TextbookData` instead of parsing an EPUB from SD.
+
+Data pipeline (Phase 2 — when PDFs are supplied)
+--------------------------------------------------
+- Add `scripts/build_textbooks.py`:
+  * Scans a `textbooks/` folder for `.pdf` files.
+  * Extracts plain text with the host `pdftotext` tool.
+  * Re-implements the device `TextLayout` pagination using the same metrics
+    (`CHAR_W=13`, `CHAR_H=27`, display area 680x1170 in portrait) so the
+    generated page boundaries match the device exactly.
+  * Emits `src/apps/TextbookData.cpp` containing C string arrays for each
+    textbook title and pages.
+- Add `extra_scripts = pre:scripts/build_textbooks.py` to `platformio.ini`
+  so the generated file is rebuilt before every `pio run -t upload`.
+- Generate an empty `TextbookData.cpp` now so the app compiles and boots
+  without any supplied PDFs (it will show "No textbooks loaded").
+
+Flash / storage considerations
+------------------------------
+- Current `min_spiffs.csv` gives each app partition ~1.9 MB.
+- The firmware already uses ~1.5 MB, leaving limited headroom for embedded
+  textbook text.  If the two PDFs exceed the free app space, switch to a
+  larger app partition (e.g. `huge_app.csv` or a custom CSV) or store the
+  generated data in SPIFFS/LittleFS and upload with `uploadfs`.
+
+Persistence
+-----------
+- Keep last-read position in the same manner as `EReaderApp`:
+  save/load a small file under `/bookmarks/textbook_<safe_id>.lr` on SD.
+- Bookmarks UI is not exposed (mirrors the current E-reader menu), but
+  the internal `updateBookmarkIndex()` / `saveLastRead()` path still keeps
+  the resume point.
+
+Integration / test (Phase 3)
+----------------------------
+- Compile `TextbookApp` with empty data and flash.
+- Verify library list, page turns, menu, exit, light/dark, partial refresh
+  work exactly like the E-reader.
+- When user supplies two PDFs, rerun the build script, re-flash, and verify
+  the generated pages match the display.
+- Commit only the source/plan/script; do not commit generated `TextbookData.cpp`
+  unless the user explicitly asks.
