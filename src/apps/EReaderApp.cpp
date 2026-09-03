@@ -652,7 +652,7 @@ void EReaderApp::drawExiting(Inkplate& display) {
     display.setTextSize(1);
     int16_t y = 120;
     display.setCursor(MARGIN_X, y);
-    display.print("tap:  none");
+    display.print("tap:  Back to menu");
     y += 60;
     display.setCursor(MARGIN_X, y);
     display.print("dbl:  Back to page");
@@ -759,6 +759,9 @@ void EReaderApp::onButton(ButtonAction action) {
         case State::EXITING:
             switch (action) {
                 case ButtonAction::IO_SHORT:
+                    state_ = State::MENU;
+                    forceFullRefresh();
+                    needsRender_ = true;
                     break;
                 case ButtonAction::IO_DOUBLE:
                     state_ = State::READER;
