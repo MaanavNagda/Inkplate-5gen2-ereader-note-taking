@@ -3,15 +3,17 @@
 #include "Inkplate.h"
 #include "Book/EpubReader.h"
 #include "TextLayout.h"
+#include "Fonts/FreeSans9pt7b.h"
+#include "Fonts/FreeSans12pt7b.h"
 
 #include <algorithm>
 #include <cstdlib>
 
 namespace {
     constexpr uint8_t FULL_REFRESH_EVERY = 50;
-    constexpr uint8_t TEXT_SIZE = 2;
-    constexpr uint16_t CHAR_W = 6 * TEXT_SIZE;
-    constexpr uint16_t CHAR_H = 8 * TEXT_SIZE;
+    constexpr uint8_t TEXT_SIZE = 1;           // native font scaling
+    constexpr uint16_t CHAR_W = 10;              // FreeSans9pt7b average xAdvance
+    constexpr uint16_t CHAR_H = 22;              // FreeSans9pt7b yAdvance (line height)
     constexpr uint16_t MARGIN_X = 20;
     constexpr uint16_t MARGIN_Y = 80;
 
@@ -23,6 +25,11 @@ namespace {
     constexpr uint16_t BG_LIGHT = 7;
     constexpr uint16_t FG_DARK = 7;
     constexpr uint16_t BG_DARK = 0;
+
+    const GFXfont* const BodyFont    = &FreeSans9pt7b;   // smooth book text
+    const GFXfont* const UIFont      = &FreeSans12pt7b;  // smooth UI labels
+    const GFXfont* const TitleFont   = &FreeSans12pt7b;  // smooth titles
+    const GFXfont* const PageNumFont = &FreeSans12pt7b;  // smooth page counter
 }
 
 void EReaderApp::applyColors(Inkplate& display) {
@@ -394,21 +401,24 @@ void EReaderApp::render(Inkplate& display) {
 }
 
 void EReaderApp::drawLibrary(Inkplate& display) {
-    display.setTextSize(3);
+    display.setFont(TitleFont);
+    display.setTextSize(1);
     display.setCursor(MARGIN_X, 30);
     display.print("Library");
     display.drawFastHLine(MARGIN_X, 55, display.width() - 2 * MARGIN_X,
                           darkMode_ ? FG_DARK : FG_LIGHT);
 
     if (!sdOk_) {
-        display.setTextSize(2);
+        display.setFont(UIFont);
+        display.setTextSize(1);
         display.setCursor(LIST_X, 120);
         display.print("Insert microSD with EPUBs in /books");
         return;
     }
 
     if (bookNames_.empty()) {
-        display.setTextSize(2);
+        display.setFont(UIFont);
+        display.setTextSize(1);
         display.setCursor(LIST_X, 120);
         display.print("No .epub files in /books");
         return;
@@ -429,20 +439,23 @@ void EReaderApp::drawLibrary(Inkplate& display) {
             display.setTextColor(darkMode_ ? FG_DARK : FG_LIGHT,
                                  darkMode_ ? BG_DARK : BG_LIGHT);
         }
-        display.setTextSize(2);
-        display.setCursor(LIST_X + 10, y + 12);
+        display.setFont(UIFont);
+        display.setTextSize(1);
+        display.setCursor(LIST_X + 10, y + 30);
         display.print(bookNames_[i].c_str());
         y += LIST_ITEM_H;
     }
     applyColors(display);
 
+    display.setFont(UIFont);
     display.setTextSize(1);
     display.setCursor(MARGIN_X, display.height() - 30);
     display.print("tap=down  dbl=up  hold=open");
 }
 
 void EReaderApp::drawReader(Inkplate& display) {
-    display.setTextSize(2);
+    display.setFont(TitleFont);
+    display.setTextSize(1);
     display.setCursor(MARGIN_X, 25);
     if (hasBookmark(currentChapter_, currentPage_)) {
         display.print("* ");
@@ -452,7 +465,8 @@ void EReaderApp::drawReader(Inkplate& display) {
                           darkMode_ ? FG_DARK : FG_LIGHT);
 
     if (pages_.empty()) {
-        display.setTextSize(2);
+        display.setFont(UIFont);
+        display.setTextSize(1);
         display.setCursor(MARGIN_X, 120);
         if (status_.find("SD") == 0) {
             display.print("Insert microSD and add EPUBs to /books");
@@ -468,6 +482,7 @@ void EReaderApp::drawReader(Inkplate& display) {
 
     if (currentPage_ >= pages_.size()) currentPage_ = pages_.size() - 1;
 
+    display.setFont(BodyFont);
     display.setTextSize(TEXT_SIZE);
     display.setCursor(MARGIN_X, MARGIN_Y);
 
@@ -483,19 +498,25 @@ void EReaderApp::drawReader(Inkplate& display) {
 
     char counter[32];
     snprintf(counter, sizeof(counter), "%zu / %zu", currentPage_ + 1, pages_.size());
+    display.setFont(PageNumFont);
     display.setTextSize(1);
-    display.setCursor(display.width() - 90, display.height() - 30);
+    int16_t x1, y1;
+    uint16_t w, h;
+    display.getTextBounds(counter, 0, 0, &x1, &y1, &w, &h);
+    display.setCursor(display.width() - MARGIN_X - w, display.height() - 30);
     display.print(counter);
 }
 
 void EReaderApp::drawMenu(Inkplate& display) {
-    display.setTextSize(3);
+    display.setFont(TitleFont);
+    display.setTextSize(1);
     display.setCursor(MARGIN_X, 30);
     display.print("Menu");
     display.drawFastHLine(MARGIN_X, 55, display.width() - 2 * MARGIN_X,
                           darkMode_ ? FG_DARK : FG_LIGHT);
 
-    display.setTextSize(2);
+    display.setFont(UIFont);
+    display.setTextSize(1);
     int16_t y = 120;
     display.setCursor(MARGIN_X, y);
     display.print("tap:  Light / Dark");
@@ -508,13 +529,15 @@ void EReaderApp::drawMenu(Inkplate& display) {
 }
 
 void EReaderApp::drawBookmarks(Inkplate& display) {
-    display.setTextSize(3);
+    display.setFont(TitleFont);
+    display.setTextSize(1);
     display.setCursor(MARGIN_X, 30);
     display.print("Bookmarks");
     display.drawFastHLine(MARGIN_X, 55, display.width() - 2 * MARGIN_X,
                           darkMode_ ? FG_DARK : FG_LIGHT);
 
-    display.setTextSize(2);
+    display.setFont(UIFont);
+    display.setTextSize(1);
     display.setCursor(MARGIN_X, 110);
     char header[64];
     snprintf(header, sizeof(header), "Page %zu", currentPage_ + 1);
@@ -537,13 +560,15 @@ void EReaderApp::drawBookmarks(Inkplate& display) {
 }
 
 void EReaderApp::drawExiting(Inkplate& display) {
-    display.setTextSize(3);
+    display.setFont(TitleFont);
+    display.setTextSize(1);
     display.setCursor(MARGIN_X, 30);
     display.print("Exit");
     display.drawFastHLine(MARGIN_X, 55, display.width() - 2 * MARGIN_X,
                           darkMode_ ? FG_DARK : FG_LIGHT);
 
-    display.setTextSize(2);
+    display.setFont(UIFont);
+    display.setTextSize(1);
     int16_t y = 120;
     display.setCursor(MARGIN_X, y);
     display.print("tap:  Bookmarks");

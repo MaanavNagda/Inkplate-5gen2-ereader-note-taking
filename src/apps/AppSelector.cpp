@@ -1,6 +1,7 @@
 #include "AppSelector.h"
 #include "../AppManager.h"
 #include "Inkplate.h"
+#include "Fonts/FreeSans12pt7b.h"
 #include <cstring>
 
 namespace {
@@ -9,13 +10,17 @@ namespace {
     // Landscape (setRotation(1)): width=1280, height=720
     constexpr int16_t GRID_X = (1280 - (4 * BOX_SIZE + 3 * GAP)) / 2;
     constexpr int16_t GRID_Y = (720 - BOX_SIZE) / 2;
-    constexpr int16_t TITLE_X = (1280 - 13 * 6 * 5) / 2;  // "Inkplate Home" text-size-5
     constexpr int16_t TITLE_Y = 80;
     constexpr uint16_t APP_BLACK = 0;
     constexpr uint16_t APP_WHITE = 7;
 
-    int16_t textCenterX(const char* text, int16_t boxX, uint8_t size) {
-        return boxX + (BOX_SIZE - static_cast<int16_t>(std::strlen(text)) * 6 * size) / 2;
+    const GFXfont* const UIFont = &FreeSans12pt7b;
+
+    int16_t textCenterX(Inkplate& d, const char* text, int16_t boxX) {
+        int16_t x1, y1;
+        uint16_t w, h;
+        d.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+        return boxX + (BOX_SIZE - static_cast<int16_t>(w)) / 2 - x1;
     }
 
     void drawBookIcon(Inkplate& d, int16_t x, int16_t y) {
@@ -61,11 +66,11 @@ namespace {
                  const char* sub, void (*icon)(Inkplate&, int16_t, int16_t)) {
         d.drawRect(x, y, BOX_SIZE, BOX_SIZE, APP_BLACK);
         icon(d, x, y);
-        d.setTextSize(3);
-        d.setCursor(textCenterX(title, x, 3), y + 180);
+        d.setFont(UIFont);
+        d.setTextSize(1);
+        d.setCursor(textCenterX(d, title, x), y + 180);
         d.print(title);
-        d.setTextSize(2);
-        d.setCursor(textCenterX(sub, x, 2), y + 230);
+        d.setCursor(textCenterX(d, sub, x), y + 230);
         d.print(sub);
     }
 }
@@ -90,11 +95,16 @@ void AppSelector::render(Inkplate& display) {
     display.setTextWrap(false);
 
     // Title with underline
-    display.setTextSize(5);
-    display.setCursor(TITLE_X, TITLE_Y);
-    display.print("Inkplate Home");
-    int16_t titleW = static_cast<int16_t>(std::strlen("Inkplate Home")) * 6 * 5;
-    display.drawFastHLine(TITLE_X, TITLE_Y + 50, titleW, APP_BLACK);
+    display.setFont(UIFont);
+    display.setTextSize(1);
+    const char* title = "Inkplate Home";
+    int16_t x1, y1;
+    uint16_t w, h;
+    display.getTextBounds(title, 0, 0, &x1, &y1, &w, &h);
+    int16_t titleX = (display.width() - static_cast<int16_t>(w)) / 2 - x1;
+    display.setCursor(titleX, TITLE_Y);
+    display.print(title);
+    display.drawFastHLine(titleX, TITLE_Y + 28, w, APP_BLACK);
 
     // four boxes in a horizontal row
     const int16_t step = BOX_SIZE + GAP;
