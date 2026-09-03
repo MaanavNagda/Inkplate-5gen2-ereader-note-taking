@@ -17,7 +17,7 @@ public:
     void render(Inkplate& display) override;
     void onButton(ButtonAction action) override;
 private:
-    enum class State { LIBRARY, READER, MENU, EXITING };
+    enum class State { LIBRARY, READER, MENU, PAGE_SELECTOR, EXITING };
 
     bool needsRender_ = true;
     bool sdOk_ = false;
@@ -36,6 +36,8 @@ private:
     std::vector<std::string> pages_;
     size_t currentPage_ = 0;
     size_t currentChapter_ = 0;
+    uint8_t pageSelectorDigits_[3] = {0, 0, 1};
+    int8_t selectedDigit_ = 0;
 
     uint8_t refreshCount_ = 0;
 
@@ -52,6 +54,7 @@ private:
     void drawLibrary(Inkplate& display);
     void drawReader(Inkplate& display);
     void drawMenu(Inkplate& display);
+    void drawPageSelector(Inkplate& display);
     void drawExiting(Inkplate& display);
 
     bool hasBookmark(size_t chapter, size_t page) const;

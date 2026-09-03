@@ -231,9 +231,10 @@ void TextbookApp::render(Inkplate& display) {
     applyColors(display);
 
     switch (state_) {
-        case State::LIBRARY: drawLibrary(display); break;
-        case State::MENU:    drawMenu(display); break;
-        case State::EXITING: drawExiting(display); break;
+        case State::LIBRARY:       drawLibrary(display); break;
+        case State::MENU:          drawMenu(display); break;
+        case State::PAGE_SELECTOR: drawPageSelector(display); break;
+        case State::EXITING:       drawExiting(display); break;
         default: break;
     }
 
@@ -325,13 +326,47 @@ void TextbookApp::drawMenu(Inkplate& display) {
     display.setTextSize(1);
     int16_t y = 120;
     display.setCursor(MARGIN_X, y);
-    display.print("tap:  Light / Dark");
+    display.print("tap:  Page selector");
     y += 60;
     display.setCursor(MARGIN_X, y);
     display.print("dbl:  Exit");
     y += 60;
     display.setCursor(MARGIN_X, y);
     display.print("hold: Full refresh");
+}
+
+void TextbookApp::drawPageSelector(Inkplate& display) {
+    display.setFont(TitleFont);
+    display.setTextSize(1);
+    display.setCursor(MARGIN_X, 30);
+    display.print("Page selector");
+    display.drawFastHLine(MARGIN_X, 55, display.width() - 2 * MARGIN_X, FG_LIGHT);
+
+    const textbook::Entry& entry = textbook::entries[loadedBookIndex_];
+
+    display.setFont(UIFont);
+    display.setTextSize(3);
+    for (int i = 0; i < 3; ++i) {
+        int16_t x = MARGIN_X + i * 70;
+        if (i == selectedDigit_) {
+            display.fillRect(x - 5, 150 - 42, 60, 60, BG_DARK);
+            display.setTextColor(FG_DARK, BG_DARK);
+        } else {
+            display.setTextColor(FG_LIGHT, BG_LIGHT);
+        }
+        display.setCursor(x, 150);
+        display.print(static_cast<unsigned>(pageSelectorDigits_[i]));
+    }
+
+    display.setFont(UIFont);
+    display.setTextSize(1);
+    display.setTextColor(FG_LIGHT, BG_LIGHT);
+    display.setCursor(MARGIN_X + 240, 150);
+    display.print("of ");
+    display.print(static_cast<unsigned>(entry.pageCount));
+
+    display.setCursor(MARGIN_X, display.height() - 30);
+    display.print("tap=+  dbl=prev  hold=next/select");
 }
 
 void TextbookApp::drawExiting(Inkplate& display) {
@@ -418,11 +453,19 @@ void TextbookApp::onButton(ButtonAction action) {
         case State::MENU:
             switch (action) {
                 case ButtonAction::IO_SHORT:
-                    darkMode_ = !darkMode_;
-                    state_ = State::READER;
-                    manager_->display().setFullUpdateThreshold(0);
-                    forceFullRefresh();
-                    needsRender_ = true;
+                    {
+                        const textbook::Entry& entry = textbook::entries[loadedBookIndex_];
+                        uint32_t page1 = currentPage_ + 1;
+                        if (page1 > entry.pageCount) page1 = static_cast<uint32_t>(entry.pageCount);
+                        if (page1 < 1) page1 = 1;
+                        pageSelectorDigits_[2] = static_cast<uint8_t>(page1 % 10);
+                        pageSelectorDigits_[1] = static_cast<uint8_t>((page1 / 10) % 10);
+                        pageSelectorDigits_[0] = static_cast<uint8_t>((page1 / 100) % 10);
+                        selectedDigit_ = 0;
+                        state_ = State::PAGE_SELECTOR;
+                        forceFullRefresh();
+                        needsRender_ = true;
+                    }
                     break;
                 case ButtonAction::IO_DOUBLE:
                     state_ = State::EXITING;
@@ -433,6 +476,45 @@ void TextbookApp::onButton(ButtonAction action) {
                     state_ = State::READER;
                     manager_->display().setFullUpdateThreshold(0);
                     forceFullRefresh();
+                    needsRender_ = true;
+                    break;
+                default: break;
+            }
+            break;
+
+        case State::PAGE_SELECTOR:
+            switch (action) {
+                case ButtonAction::IO_SHORT:
+                    {
+                        const textbook::Entry& entry = textbook::entries[loadedBookIndex_];
+                        uint32_t pageCount = static_cast<uint32_t>(entry.pageCount);
+                        uint8_t firstMax = (pageCount >= 900) ? 9 : static_cast<uint8_t>(pageCount / 100);
+                        uint8_t max = 9;
+                        if (selectedDigit_ == 0) max = firstMax;
+                        pageSelectorDigits_[selectedDigit_] = (pageSelectorDigits_[selectedDigit_] + 1) % (max + 1);
+                        needsRender_ = true;
+                    }
+                    break;
+                case ButtonAction::IO_DOUBLE:
+                    selectedDigit_ = (selectedDigit_ + 2) % 3;
+                    needsRender_ = true;
+                    break;
+                case ButtonAction::IO_LONG:
+                    if (selectedDigit_ == 2) {
+                        const textbook::Entry& entry = textbook::entries[loadedBookIndex_];
+                        uint32_t pageCount = static_cast<uint32_t>(entry.pageCount);
+                        uint32_t target = pageSelectorDigits_[0] * 100U + pageSelectorDigits_[1] * 10U + pageSelectorDigits_[2];
+                        if (target < 1) target = 1;
+                        if (target > pageCount) target = pageCount;
+                        if (target > 0) {
+                            currentPage_ = target - 1;
+                            updateBookmarkIndex();
+                        }
+                        state_ = State::READER;
+                        forceFullRefresh();
+                    } else {
+                        ++selectedDigit_;
+                    }
                     needsRender_ = true;
                     break;
                 default: break;
