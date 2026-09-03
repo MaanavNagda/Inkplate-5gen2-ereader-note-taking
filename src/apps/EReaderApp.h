@@ -68,6 +68,10 @@ private:
     std::string bookmarkPathFor(const std::string& bookPath) const;
     void saveBookmarks();
     void loadBookmarksForBook(SdFat& sd, const std::string& bookPath);
+
+    std::string lastReadPathFor(const std::string& bookPath) const;
+    bool loadLastRead(SdFat& sd, const std::string& bookPath, size_t& chapter, size_t& page) const;
+    void saveLastRead();
 };
 
 #endif

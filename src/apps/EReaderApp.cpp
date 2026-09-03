@@ -123,22 +123,35 @@ void EReaderApp::loadSelectedBook(SdFat& sd) {
     // Portrait when actually reading.
     manager_->display().setRotation(3);
 
-    // If we have a saved bookmark, resume at the furthest one.
-    if (!bookmarks_.empty()) {
+    // If we have a saved last-read position, resume there; otherwise use the
+    // furthest bookmark.
+    size_t resumeChapter = 0;
+    size_t resumePage = 0;
+    bool haveResume = loadLastRead(sd, loadedBook_, resumeChapter, resumePage);
+
+    if (!haveResume && !bookmarks_.empty()) {
         auto furthest = std::max_element(bookmarks_.begin(), bookmarks_.end());
-        Serial.printf("loadSelectedBook: resuming at chapter=%u page=%u\n",
-                      static_cast<unsigned>(furthest->first),
-                      static_cast<unsigned>(furthest->second));
-        if (loadChapter(furthest->first)) {
-            if (furthest->second < pages_.size()) {
-                currentPage_ = furthest->second;
-            } else if (!pages_.empty()) {
-                currentPage_ = pages_.size() - 1;
-            }
-            updateBookmarkIndex();
-            forceFullRefresh();
-            return;
+        resumeChapter = furthest->first;
+        resumePage = furthest->second;
+        haveResume = true;
+        Serial.printf("loadSelectedBook: resuming at furthest bookmark chapter=%u page=%u\n",
+                      static_cast<unsigned>(resumeChapter),
+                      static_cast<unsigned>(resumePage));
+    } else if (haveResume) {
+        Serial.printf("loadSelectedBook: resuming at last-read chapter=%u page=%u\n",
+                      static_cast<unsigned>(resumeChapter),
+                      static_cast<unsigned>(resumePage));
+    }
+
+    if (haveResume && loadChapter(resumeChapter)) {
+        if (resumePage < pages_.size()) {
+            currentPage_ = resumePage;
+        } else if (!pages_.empty()) {
+            currentPage_ = pages_.size() - 1;
         }
+        updateBookmarkIndex();
+        forceFullRefresh();
+        return;
     }
 
     // Open the first chapter that actually has text.
@@ -321,6 +334,71 @@ void EReaderApp::loadBookmarksForBook(SdFat& sd, const std::string& bookPath) {
     std::sort(bookmarks_.begin(), bookmarks_.end());
 }
 
+std::string EReaderApp::lastReadPathFor(const std::string& bookPath) const {
+    std::string name = bookPath;
+    size_t slash = name.find_last_of('/');
+    if (slash != std::string::npos) name = name.substr(slash + 1);
+    size_t dot = name.find_last_of('.');
+    if (dot != std::string::npos) name = name.substr(0, dot);
+    return "/bookmarks/" + name + ".lr";
+}
+
+bool EReaderApp::loadLastRead(SdFat& sd, const std::string& bookPath, size_t& chapter, size_t& page) const {
+    std::string path = lastReadPathFor(bookPath);
+    Serial.printf("loadLastRead: reading %s\n", path.c_str());
+    FsFile f;
+    if (!f.open(&sd, path.c_str(), O_RDONLY)) {
+        Serial.printf("loadLastRead: %s not found\n", path.c_str());
+        return false;
+    }
+
+    char buf[64];
+    int n = f.read(buf, sizeof(buf) - 1);
+    f.close();
+    if (n <= 0) return false;
+    buf[n] = '\0';
+    std::string content(buf);
+
+    size_t comma = content.find(',');
+    if (comma == std::string::npos) return false;
+    chapter = static_cast<size_t>(strtoul(content.substr(0, comma).c_str(), nullptr, 10));
+    page = static_cast<size_t>(strtoul(content.substr(comma + 1).c_str(), nullptr, 10));
+    Serial.printf("loadLastRead: parsed chapter=%u page=%u\n",
+                  static_cast<unsigned>(chapter), static_cast<unsigned>(page));
+    return true;
+}
+
+void EReaderApp::saveLastRead() {
+    if (!manager_ || loadedBook_.empty()) return;
+    SdFat& sd = manager_->display().getSdFat();
+
+    if (!sd.exists("/bookmarks")) {
+        Serial.println("saveLastRead: creating /bookmarks");
+        sd.mkdir("/bookmarks");
+    }
+
+    std::string path = lastReadPathFor(loadedBook_);
+    Serial.printf("saveLastRead: writing %s\n", path.c_str());
+    FsFile f;
+    if (!f.open(&sd, path.c_str(), O_WRONLY | O_CREAT | O_TRUNC)) {
+        Serial.printf("saveLastRead: cannot write %s\n", path.c_str());
+        return;
+    }
+    char line[32];
+    int len = snprintf(line, sizeof(line), "%u,%u\n",
+                       static_cast<unsigned>(currentChapter_), static_cast<unsigned>(currentPage_));
+    if (len > 0) {
+        size_t written = f.write(reinterpret_cast<const uint8_t*>(line), static_cast<size_t>(len));
+        if (written != static_cast<size_t>(len)) {
+            Serial.printf("saveLastRead: write failed, wrote %u of %d\n",
+                          static_cast<unsigned>(written), len);
+        }
+    }
+    f.sync();
+    f.close();
+    Serial.println("saveLastRead: done");
+}
+
 void EReaderApp::updateBookmarkIndex() {
     auto key = std::make_pair(currentChapter_, currentPage_);
     auto it = std::lower_bound(bookmarks_.begin(), bookmarks_.end(), key);
@@ -331,6 +409,7 @@ void EReaderApp::updateBookmarkIndex() {
     } else {
         bookmarkIdx_ = 0;
     }
+    saveLastRead();
 }
 
 void EReaderApp::begin(AppManager& manager) {
