@@ -100,6 +100,7 @@ void EReaderApp::loadSelectedBook(SdFat& sd) {
     currentChapter_ = 0;
     bookmarkIdx_ = 0;
     reader_.close();
+    manager_->display().setFullUpdateThreshold(0);
 
     if (!manager_ || selectedBook_ >= books_.size()) {
         status_ = "No book selected";
@@ -415,6 +416,7 @@ void EReaderApp::updateBookmarkIndex() {
 void EReaderApp::begin(AppManager& manager) {
     App::begin(manager);
     state_ = State::LIBRARY;
+    manager_->display().setFullUpdateThreshold(10);
     needsRender_ = true;
     sdOk_ = false;
     booksScanned_ = false;
@@ -450,7 +452,6 @@ void EReaderApp::render(Inkplate& display) {
     // Partial refresh only works in black-and-white (1-bit) mode, so this app
     // always uses that. The screensaver is the only 3-bit view.
     display.selectDisplayMode(INKPLATE_1BIT);
-    display.setFullUpdateThreshold(0);
 
     if (!sdOk_) {
         sdOk_ = (display.sdCardInit() == 1);
@@ -469,7 +470,8 @@ void EReaderApp::render(Inkplate& display) {
         case State::EXITING:   drawExiting(display); break;
     }
 
-    bool full = (refreshCount_ == 0) || (state_ != State::READER);
+    bool full = (state_ == State::READER && refreshCount_ == 0) ||
+                (state_ != State::READER && state_ != State::LIBRARY);
     if (full) {
         display.display();
     } else {
@@ -738,6 +740,7 @@ void EReaderApp::onButton(ButtonAction action) {
                 case ButtonAction::IO_SHORT:
                     darkMode_ = !darkMode_;
                     state_ = State::READER;
+                    manager_->display().setFullUpdateThreshold(0);
                     forceFullRefresh();
                     needsRender_ = true;
                     break;
@@ -748,6 +751,7 @@ void EReaderApp::onButton(ButtonAction action) {
                     break;
                 case ButtonAction::IO_LONG:
                     state_ = State::READER;
+                    manager_->display().setFullUpdateThreshold(0);
                     forceFullRefresh();
                     needsRender_ = true;
                     break;
@@ -765,6 +769,7 @@ void EReaderApp::onButton(ButtonAction action) {
                     break;
                 case ButtonAction::IO_DOUBLE:
                     state_ = State::READER;
+                    manager_->display().setFullUpdateThreshold(0);
                     forceFullRefresh();
                     needsRender_ = true;
                     break;
